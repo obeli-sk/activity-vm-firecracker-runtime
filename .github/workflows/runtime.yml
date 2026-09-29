@@ -1,0 +1,44 @@
+name: runtime
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DeterminateSystems/nix-installer-action@v21
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+
+      - name: Build runtime
+        run: nix build --print-build-logs
+
+      - name: Enable KVM access
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          test -w /dev/kvm
+
+      - name: Boot and run guest command
+        run: nix develop -c python3 scripts/smoke-test.py result
+
+      # No release yet: the bundle names Nix store paths, so this is for inspection only.
+      - name: Stage guest
+        run: |
+          mkdir -p builds
+          cp -rL result/guest result/firecracker-version.txt builds/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: activity-vm-firecracker-runtime-${{ github.sha }}
+          path: builds/
+          if-no-files-found: error
+          retention-days: 7

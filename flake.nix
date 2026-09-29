@@ -63,7 +63,7 @@
         default = runtime;
       };
       devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs.bash pkgs.libarchive pkgs.gzip pkgs.jq pkgs.curl pkgs.erofs-utils pkgs.firecracker ];
+        packages = [ pkgs.bash pkgs.libarchive pkgs.gzip pkgs.jq pkgs.curl pkgs.erofs-utils pkgs.firecracker pkgs.python3 ];
       };
     };
 }
