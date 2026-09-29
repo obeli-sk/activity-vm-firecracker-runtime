@@ -1,0 +1,5 @@
+{
+  "boot_args": "console=ttyS0 reboot=k panic=1 pci=off rdinit=/init loglevel=4 mitigations=off i8042.noaux i8042.nomux i8042.dumbkbd 8250.nr_uarts=1",
+  "max_cpus": 32,
+  "min_memory_mib": 128
+}

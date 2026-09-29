@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+export PATH=/bin:/usr/bin:/usr/sbin
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /share /obelisk-activity-vm-http /obelisk-activity /tmp
+ip link set lo up
+nft -f /usr/share/obelisk/activity-vm.nft
+# The default heuristic rejects single commits near guest RAM size, such as V8's 512 MiB code range.
+echo 1 > /proc/sys/vm/overcommit_memory
+mount -o remount,size=90% /
+mount -t erofs -o ro /dev/vda /share
+mount -t tmpfs -o mode=0755 mailbox /obelisk-activity-vm-http
+rm -rf /nix /obelisk-activity
+ln -s /share/nix /nix
+ln -s /share/obelisk-activity /obelisk-activity
+/bin/mailbox /obelisk-activity-vm-http 1024 &
+# The host sends run.sh last.
+while [ ! -f /obelisk-activity-vm-http/run.sh ]; do
+  usleep 1000
+done
+/bin/sh /obelisk-activity-vm-http/run.sh
+while :; do sleep 3600; done
