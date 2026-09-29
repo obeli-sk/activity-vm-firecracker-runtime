@@ -52,7 +52,6 @@
           ${kernel}/vmlinux \
           ${bochsPackages.rootfs}/rootfs.bin \
           ${mailbox}/bin/mailbox \
-          ${pkgs.erofs-utils}/bin/mkfs.erofs \
           "$out"
       '';
     in {
@@ -63,7 +62,7 @@
         default = runtime;
       };
       devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs.bash pkgs.libarchive pkgs.gzip pkgs.jq pkgs.curl pkgs.erofs-utils pkgs.firecracker pkgs.python3 ];
+        packages = [ pkgs.bash pkgs.libarchive pkgs.gzip pkgs.jq pkgs.curl pkgs.erofs-utils pkgs.firecracker pkgs.python3 pkgs.zstd ];
       };
     };
 }

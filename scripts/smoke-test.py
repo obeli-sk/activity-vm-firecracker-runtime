@@ -3,6 +3,7 @@
 
 import json
 import pathlib
+import shutil
 import socket
 import struct
 import subprocess
@@ -40,8 +41,14 @@ def main(bundle):
     bundle = pathlib.Path(bundle).resolve()
     guest = bundle / "guest"
     machine = json.loads((guest / "machine.json").read_text())
-    firecracker = (bundle / "firecracker-path").read_text().strip()
-    mkfs_erofs = (bundle / "mkfs-erofs-path").read_text().strip()
+    # Obelisk runs both from PATH; a cold boot does not need the exact build version.
+    firecracker = shutil.which("firecracker") or sys.exit("firecracker is not on PATH")
+    mkfs_erofs = shutil.which("mkfs.erofs") or sys.exit("mkfs.erofs is not on PATH")
+    version = subprocess.run([firecracker, "--version"], check=True, capture_output=True,
+                             text=True).stdout.splitlines()[0]
+    expected = (bundle / "firecracker-version.txt").read_text().strip()
+    if version != expected:
+        print(f"warning: bundle built with {expected}, running {version}", file=sys.stderr)
     with tempfile.TemporaryDirectory() as work:
         work = pathlib.Path(work)
         store = work / "share" / "nix" / "store"

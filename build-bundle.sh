@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if (( $# != 6 )); then
-  echo 'usage: build-bundle.sh FIRECRACKER KERNEL ROOTFS_ISO MAILBOX MKFS_EROFS OUTPUT_DIR' >&2
+if (( $# != 5 )); then
+  echo 'usage: build-bundle.sh FIRECRACKER KERNEL ROOTFS_ISO MAILBOX OUTPUT_DIR' >&2
   exit 2
 fi
 firecracker=$1
 kernel=$2
 rootfs=$3
 mailbox=$4
-mkfs_erofs=$5
-output=$6
+output=$5
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 mkdir -p "$output/guest"
 root=$(mktemp -d)
@@ -29,6 +28,4 @@ chmod 1777 "$root/tmp"
 )
 cp -f "$kernel" "$output/guest/vmlinux"
 cp "$source_dir/machine.json" "$output/guest/machine.json"
-printf '%s\n' "$firecracker" > "$output/firecracker-path"
-printf '%s\n' "$mkfs_erofs" > "$output/mkfs-erofs-path"
 "$firecracker" --version | head -1 > "$output/firecracker-version.txt"
