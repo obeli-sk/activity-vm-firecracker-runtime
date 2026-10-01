@@ -1,5 +1,6 @@
 // Mirrors the activity mailbox directory with the host over vsock.
 // Frame: u16 name length, u64 data length (little endian), name, data.
+// A name length with APPEND_FLAG set appends the data to the file instead of replacing it.
 // Files are sent in inotify order, so a marker written after its data arrives after it.
 #include <errno.h>
 #include <fcntl.h>
@@ -17,6 +18,11 @@
 #include <linux/vm_sockets.h>
 
 #define TMP_SUFFIX ".mbtmp"
+#define APPEND_FLAG 0x8000
+
+// Activity output is sent as it grows; every other file must arrive whole.
+static const char *streamed[] = {"stdout", "stderr"};
+static off_t streamed_sent[sizeof streamed / sizeof *streamed];
 
 static const char *dir;
 static int sock;
@@ -74,6 +80,18 @@ static void write_exact(const void *buf, size_t len) {
     p += w;
     len -= w;
   }
+}
+
+static int streamed_index(const char *name) {
+  for (size_t i = 0; i < sizeof streamed / sizeof *streamed; i++)
+    if (strcmp(streamed[i], name) == 0) return i;
+  return -1;
+}
+
+static void write_header(uint16_t name_field, uint64_t data_len) {
+  unsigned char header[10] = {name_field & 0xff, name_field >> 8};
+  for (int i = 0; i < 8; i++) header[2 + i] = data_len >> (8 * i);
+  write_exact(header, sizeof header);
 }
 
 static void receive_file(void) {
@@ -137,12 +155,34 @@ static void send_file(const char *name) {
   }
   close(fd);
   size_t name_len = strlen(name);
-  unsigned char header[10] = {name_len & 0xff, name_len >> 8};
-  for (int i = 0; i < 8; i++) header[2 + i] = (uint64_t)got >> (8 * i);
-  write_exact(header, sizeof header);
+  write_header(name_len, got);
   write_exact(name, name_len);
   write_exact(data, got);
   free(data);
+}
+
+// Sends the bytes appended since the last call; on close an empty frame still creates the file.
+static void send_appended(const char *name, int index, int closed) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof path, "%s/%s", dir, name);
+  int fd = open(path, O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return;
+  size_t name_len = strlen(name);
+  char buf[65536];
+  int sent_any = 0;
+  ssize_t r;
+  while ((r = pread(fd, buf, sizeof buf, streamed_sent[index])) > 0) {
+    write_header(name_len | APPEND_FLAG, r);
+    write_exact(name, name_len);
+    write_exact(buf, r);
+    streamed_sent[index] += r;
+    sent_any = 1;
+  }
+  close(fd);
+  if (closed && !sent_any) {
+    write_header(name_len | APPEND_FLAG, 0);
+    write_exact(name, name_len);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -153,7 +193,7 @@ int main(int argc, char **argv) {
   dir = argv[1];
   int inotify = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
   if (inotify < 0) die("inotify_init1");
-  if (inotify_add_watch(inotify, dir, IN_CLOSE_WRITE | IN_MOVED_TO) < 0) die("inotify_add_watch");
+  if (inotify_add_watch(inotify, dir, IN_CLOSE_WRITE | IN_MOVED_TO | IN_MODIFY) < 0) die("inotify_add_watch");
   struct sockaddr_vm addr = {
       .svm_family = AF_VSOCK, .svm_cid = VMADDR_CID_HOST, .svm_port = atoi(argv[2])};
   for (int attempt = 0;; attempt++) {
@@ -177,8 +217,11 @@ int main(int argc, char **argv) {
       while ((len = read(inotify, events, sizeof events)) > 0) {
         for (char *p = events; p < events + len;) {
           struct inotify_event *event = (struct inotify_event *)p;
-          if (event->len && !ends_with(event->name, ".tmp") &&
-              !ends_with(event->name, TMP_SUFFIX) && !was_received(event->name))
+          int index = event->len ? streamed_index(event->name) : -1;
+          if (index >= 0 && !was_received(event->name))
+            send_appended(event->name, index, event->mask & IN_CLOSE_WRITE);
+          else if (event->len && !(event->mask & IN_MODIFY) && !ends_with(event->name, ".tmp") &&
+                   !ends_with(event->name, TMP_SUFFIX) && !was_received(event->name))
             send_file(event->name);
           p += sizeof *event + event->len;
         }
