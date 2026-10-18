@@ -58,7 +58,6 @@
       "original": {
         "owner": "obeli-sk",
         "repo": "activity-vm-bochs-runtime",
-        "rev": "d8e3d71965f01b4a2b63b4d84af8d37eecda137f",
         "type": "github"
       }
     },
@@ -138,8 +137,8 @@
       },
       "original": {
         "owner": "NixOS",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
-        "rev": "e158d9ed9b51c98974c5e66e1ba1c9e0255fecaa",
         "type": "github"
       }
     },

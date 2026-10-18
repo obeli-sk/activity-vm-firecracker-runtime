@@ -2,8 +2,8 @@
   description = "Firecracker activity VM runtime for Obelisk";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/e158d9ed9b51c98974c5e66e1ba1c9e0255fecaa";
-    bochs-runtime.url = "github:obeli-sk/activity-vm-bochs-runtime/d8e3d71965f01b4a2b63b4d84af8d37eecda137f";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    bochs-runtime.url = "github:obeli-sk/activity-vm-bochs-runtime";
   };
 
   outputs = { nixpkgs, bochs-runtime, ... }:
