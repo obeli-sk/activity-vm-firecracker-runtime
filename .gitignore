@@ -1,2 +1,4 @@
 /result
 /builds
+.direnv
+.envrc
